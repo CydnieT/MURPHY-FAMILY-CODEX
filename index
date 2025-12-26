@@ -1,1 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Murphy Family · Document Binder</title>
+  <style>
+    :root{
+      --bg:#0b0f18;
+      --panel:#0f1626;
+      --line:#22304f;
+      --text:#e9eef8;
+      --muted:#aab6d6;
+      --accent:#c9a24a;
+      --radius:14px;
+      --shadow: 0 10px 28px rgba(0,0,0,.35);
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 650px at 10% -10%, rgba(201,162,74,.12), transparent 55%),
+                  radial-gradient(1100px 650px at 90% 0%, rgba(122,162,255,.12), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    a{color:inherit; text-decoration:none}
+    .wrap{max-width:1100px; margin:0 auto; padding:22px;}
+    header{
+      position:sticky; top:0; z-index:10;
+      backdrop-filter: blur(10px);
+      background: rgba(11,15,24,.78);
+      border-bottom:1px solid rgba(34,48,79,.75);
+    }
+    .head{
+      max-width:1100px; margin:0 auto;
+      padding:16px 22px;
+      display:flex; align-items:center; justify-content:space-between; gap:14px;
+    }
+    .brand{display:flex; flex-direction:column; gap:2px;}
+    .brand .t1{font-size:13px; letter-spacing:.24px; font-weight:700}
+    .brand .t2{font-size:12px; color:var(--muted)}
+    .status{
+      font-family:var(--mono);
+      font-size:11px;
+      color:rgba(233,238,248,.9);
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(34,48,79,.9);
+      background: rgba(15,22,38,.72);
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(15,22,38,.95), rgba(15,22,38,.88));
+      border:1px solid rgba(34,48,79,.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .toolbar{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-bottom:12px;
+    }
+    .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    input, select{
+      background: rgba(11,15,24,.6);
+      border:1px solid rgba(34,48,79,.9);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      outline:none;
+      min-width: 240px;
+    }
+    select{min-width:200px}
+    .secTitle{
+      font-size:12px;
+      color: var(--muted);
+      letter-spacing:.18px;
+      text-transform:uppercase;
+      margin:18px 0 10px;
+      padding-top:2px;
+      border-top:1px solid rgba(34,48,79,.55);
+    }
+    .list{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+    .item{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(34,48,79,.75);
+      background: rgba(11,15,24,.35);
+    }
+    .left{display:flex; flex-direction:column; gap:3px; min-width:0}
+    .name{
+      font-size:13px; font-weight:700;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .path{
+      font-size:11px; color:var(--muted);
+      font-family:var(--mono);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      max-width: 72ch;
+    }
+    .actions{display:flex; gap:8px; flex-wrap:wrap; flex-shrink:0}
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:9px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(34,48,79,.9);
+      background: rgba(11,15,24,.55);
+      font-size:12px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color: rgba(201,162,74,.55);
+      background: rgba(201,162,74,.12);
+      color: var(--text);
+    }
+    .btn:hover{filter:brightness(1.08)}
+    table{
+      width:100%;
+      border-collapse:collapse;
+      border-radius: 12px;
+      overflow:hidden;
+      border:1px solid rgba(34,48,79,.85);
+      margin-top:12px;
+    }
+    th, td{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(34,48,79,.55);
+      text-align:left;
+      font-size:12px;
+    }
+    thead{background: rgba(11,15,24,.55)}
+    tbody tr:hover{background: rgba(122,162,255,.06)}
+    .muted{color:var(--muted)}
+    /* modal */
+    .backdrop{
+      position:fixed; inset:0; z-index:100;
+      display:none; place-items:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(6px);
+      padding:18px;
+    }
+    .modal{
+      width:min(1100px, 100%);
+      height:min(86vh, 860px);
+      background: rgba(15,22,38,.98);
+      border:1px solid rgba(34,48,79,.9);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex; flex-direction:column;
+    }
+    .mhead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(34,48,79,.55);
+    }
+    .mtitle{
+      font-size:12px; color:var(--muted);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .mbody{flex:1; background: rgba(11,15,24,.35)}
+    iframe{width:100%; height:100%; border:0}
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="head">
+      <div class="brand">
+        <div class="t1">Murphy Family · Document Binder</div>
+        <div class="t2">Master index</div>
+      </div>
+      <div class="status" id="count">0 documents</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <div class="toolbar">
+        <div class="controls">
+          <input id="q" type="search" placeholder="Search" />
+          <select id="cat"></select>
+        </div>
+      </div>
+
+      <div id="sections"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Category</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div class="backdrop" id="backdrop">
+    <div class="modal">
+      <div class="mhead">
+        <div class="mtitle" id="mtitle"></div>
+        <div class="actions">
+          <a class="btn" id="mdownload" href="#" download>Download</a>
+          <button class="btn primary" id="mclose">Close</button>
+        </div>
+      </div>
+      <div class="mbody">
+        <iframe id="frame" title="Document Preview"></iframe>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   FILES (matches your /docs exactly)
+   ========================= */
+const MANIFEST = [
+  // Estate
+  { name: "Revocable Living Trust", category: "Estate", path: "docs/Revocable_Trust.pdf" },
+  { name: "Ricky · Last Will and Testament", category: "Estate", path: "docs/MURPHY_RICKY_Last_Will_and_Testament.pdf" },
+  { name: "Cydnie · Last Will and Testament", category: "Estate", path: "docs/MURPHY_CYDNIE_Last_Will_and_Testament.pdf" },
+  { name: "Ricky · Durable Financial Power of Attorney", category: "Estate", path: "docs/MURPHY_RICKY_Durable_Financial_Power_of_Attorney.pdf" },
+  { name: "Cydnie · Durable Financial Power of Attorney", category: "Estate", path: "docs/MURPHY_CYDNIE_Durable_Financial_Power_of_Attorney.pdf" },
+
+  // Medical
+  { name: "Ricky · Advance Healthcare Directive", category: "Medical", path: "docs/MURPHY_RICKY_Advance_Healthcare_Directive.pdf" },
+  { name: "Cydnie · Advance Healthcare Directive", category: "Medical", path: "docs/MURPHY_CYDNIE_Advance_Healthcare_Directive.pdf" },
+  { name: "Revocable Living Will", category: "Medical", path: "docs/Revocable Living Will.pdf" },
+
+  // Identity
+  { name: "Ricky · DS-11 Passport Packet", category: "Identity", path: "docs/DS11_Complete (1)RickyMurphy.pdf" },
+  { name: "Cydnie · DS-11 Passport Packet", category: "Identity", path: "docs/DS11_CompleteCydnieMurphy.pdf" },
+
+  // Finance
+  { name: "CPA · Banking Summary", category: "Finance", path: "docs/Murphy_CPA_Banking_Summary.pdf" },
+];
+
+/* =========================
+   HELPERS
+   ========================= */
+const qEl = document.getElementById("q");
+const catEl = document.getElementById("cat");
+const sectionsEl = document.getElementById("sections");
+const tbodyEl = document.getElementById("tbody");
+const countEl = document.getElementById("count");
+
+const backdrop = document.getElementById("backdrop");
+const frame = document.getElementById("frame");
+const mtitle = document.getElementById("mtitle");
+const mdownload = document.getElementById("mdownload");
+const mclose = document.getElementById("mclose");
+
+// Encode each path segment (keeps slashes, fixes spaces + parentheses)
+function hrefFor(path){
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function uniq(arr){ return [...new Set(arr)].sort((a,b)=>a.localeCompare(b)); }
+function esc(s){
+  return String(s).replace(/[&<>"']/g, m => (
+    { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]
+  ));
+}
+
+function matches(it, q, cat){
+  const query = (q || "").trim().toLowerCase();
+  const catOK = (cat === "All" || it.category === cat);
+  if (!catOK) return false;
+  if (!query) return true;
+  return (
+    it.name.toLowerCase().includes(query) ||
+    it.category.toLowerCase().includes(query) ||
+    it.path.toLowerCase().includes(query)
+  );
+}
+
+/* =========================
+   MODAL
+   ========================= */
+function openDoc(it){
+  const url = hrefFor(it.path);
+  mtitle.textContent = it.name;
+  mdownload.href = url;
+  frame.src = url;
+  backdrop.style.display = "grid";
+}
+function closeDoc(){
+  backdrop.style.display = "none";
+  frame.src = "about:blank";
+}
+mclose.addEventListener("click", closeDoc);
+backdrop.addEventListener("click", (e)=>{ if (e.target === backdrop) closeDoc(); });
+document.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeDoc(); });
+
+/* =========================
+   RENDER
+   ========================= */
+function buildCategories(){
+  const cats = uniq(["All", ...MANIFEST.map(x=>x.category)]);
+  catEl.innerHTML = cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+}
+
+function render(){
+  const q = qEl.value || "";
+  const cat = catEl.value || "All";
+  const items = MANIFEST.filter(it => matches(it, q, cat));
+
+  countEl.textContent = `${items.length} document${items.length===1?"":"s"}`;
+
+  // Grouped sections (binder feel)
+  const byCat = {};
+  items.forEach(it => { (byCat[it.category] ||= []).push(it); });
+
+  sectionsEl.innerHTML = "";
+  Object.keys(byCat).sort().forEach(category => {
+    const block = document.createElement("div");
+    block.className = "sectionBlock";
+    block.innerHTML = `
+      <div class="secTitle">${esc(category)}</div>
+      <div class="list">
+        ${byCat[category].map(it => {
+          const url = hrefFor(it.path);
+          return `
+            <div class="item">
+              <div class="left">
+                <div class="name">${esc(it.name)}</div>
+                <div class="path">${esc(it.path)}</div>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="button" data-open="${esc(it.name)}">Open</button>
+                <a class="btn" href="${url}" download>Download</a>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+    sectionsEl.appendChild(block);
+  });
+
+  // Wire Open buttons
+  sectionsEl.querySelectorAll("button[data-open]").forEach(btn => {
+    const name = btn.getAttribute("data-open");
+    btn.addEventListener("click", () => {
+      const it = MANIFEST.find(x => x.name === name);
+      if (it) openDoc(it);
+    });
+  });
+
+  // Table
+  tbodyEl.innerHTML = items.map(it => {
+    const url = hrefFor(it.path);
+    return `
+      <tr>
+        <td><strong>${esc(it.name)}</strong><div class="muted" style="font-family:var(--mono); font-size:11px">${esc(it.path)}</div></td>
+        <td>${esc(it.category)}</td>
+        <td>
+          <button class="btn primary" type="button" data-open="${esc(it.name)}">Open</button>
+          <a class="btn" href="${url}" download>Download</a>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // Wire table Open buttons
+  tbodyEl.querySelectorAll("button[data-open]").forEach(btn => {
+    const name = btn.getAttribute("data-open");
+    btn.addEventListener("click", () => {
+      const it = MANIFEST.find(x => x.name === name);
+      if (it) openDoc(it);
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  buildCategories();
+  render();
+  qEl.addEventListener("input", render);
+  catEl.addEventListener("change", render);
+});
+</script>
+</body>
+</html>
 
