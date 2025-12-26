@@ -27,13 +27,13 @@
       color:var(--text);
     }
     a{color:inherit; text-decoration:none}
-    .wrap{max-width:1100px; margin:0 auto; padding:22px;}
     header{
       position:sticky; top:0; z-index:10;
       backdrop-filter: blur(10px);
       background: rgba(11,15,24,.78);
       border-bottom:1px solid rgba(34,48,79,.75);
     }
+    .wrap{max-width:1100px; margin:0 auto; padding:22px;}
     .head{
       max-width:1100px; margin:0 auto;
       padding:16px 22px;
@@ -50,6 +50,7 @@
       border-radius:999px;
       border:1px solid rgba(34,48,79,.9);
       background: rgba(15,22,38,.72);
+      white-space:nowrap;
     }
     .panel{
       background: linear-gradient(180deg, rgba(15,22,38,.95), rgba(15,22,38,.88));
@@ -114,11 +115,11 @@
       background: rgba(11,15,24,.55);
       font-size:12px;
       cursor:pointer;
+      user-select:none;
     }
     .btn.primary{
       border-color: rgba(201,162,74,.55);
       background: rgba(201,162,74,.12);
-      color: var(--text);
     }
     .btn:hover{filter:brightness(1.08)}
     table{
@@ -177,7 +178,7 @@
         <div class="t1">Murphy Family · Document Binder</div>
         <div class="t2">Master index</div>
       </div>
-      <div class="status" id="count">0 documents</div>
+      <div class="status" id="count">Loading…</div>
     </div>
   </header>
 
@@ -188,6 +189,7 @@
           <input id="q" type="search" placeholder="Search" />
           <select id="cat"></select>
         </div>
+        <div class="status" id="source"></div>
       </div>
 
       <div id="sections"></div>
@@ -222,37 +224,25 @@
 
 <script>
 /* =========================
-   FILES (matches your /docs exactly)
+   CONFIG
    ========================= */
-const MANIFEST = [
-  // Estate
-  { name: "Revocable Living Trust", category: "Estate", path: "docs/Revocable_Trust.pdf" },
-  { name: "Ricky · Last Will and Testament", category: "Estate", path: "docs/MURPHY_RICKY_Last_Will_and_Testament.pdf" },
-  { name: "Cydnie · Last Will and Testament", category: "Estate", path: "docs/MURPHY_CYDNIE_Last_Will_and_Testament.pdf" },
-  { name: "Ricky · Durable Financial Power of Attorney", category: "Estate", path: "docs/MURPHY_RICKY_Durable_Financial_Power_of_Attorney.pdf" },
-  { name: "Cydnie · Durable Financial Power of Attorney", category: "Estate", path: "docs/MURPHY_CYDNIE_Durable_Financial_Power_of_Attorney.pdf" },
+// Change these ONLY if the repo name/user changes.
+const GH_OWNER = "CydnieT";
+const GH_REPO  = "MURPHYFAMILY";
+const GH_BRANCH = "main";
 
-  // Medical
-  { name: "Ricky · Advance Healthcare Directive", category: "Medical", path: "docs/MURPHY_RICKY_Advance_Healthcare_Directive.pdf" },
-  { name: "Cydnie · Advance Healthcare Directive", category: "Medical", path: "docs/MURPHY_CYDNIE_Advance_Healthcare_Directive.pdf" },
-  { name: "Revocable Living Will", category: "Medical", path: "docs/Revocable Living Will.pdf" },
-
-  // Identity
-  { name: "Ricky · DS-11 Passport Packet", category: "Identity", path: "docs/DS11_Complete (1)RickyMurphy.pdf" },
-  { name: "Cydnie · DS-11 Passport Packet", category: "Identity", path: "docs/DS11_CompleteCydnieMurphy.pdf" },
-
-  // Finance
-  { name: "CPA · Banking Summary", category: "Finance", path: "docs/Murphy_CPA_Banking_Summary.pdf" },
-];
+// Folder(s) to index. Adds docs/legal automatically if it exists.
+const FOLDERS = ["docs", "docs/legal"];
 
 /* =========================
-   HELPERS
+   DOM
    ========================= */
 const qEl = document.getElementById("q");
 const catEl = document.getElementById("cat");
 const sectionsEl = document.getElementById("sections");
 const tbodyEl = document.getElementById("tbody");
 const countEl = document.getElementById("count");
+const sourceEl = document.getElementById("source");
 
 const backdrop = document.getElementById("backdrop");
 const frame = document.getElementById("frame");
@@ -260,35 +250,89 @@ const mtitle = document.getElementById("mtitle");
 const mdownload = document.getElementById("mdownload");
 const mclose = document.getElementById("mclose");
 
-// Encode each path segment (keeps slashes, fixes spaces + parentheses)
-function hrefFor(path){
-  return path.split("/").map(encodeURIComponent).join("/");
-}
-
+/* =========================
+   HELPERS
+   ========================= */
 function uniq(arr){ return [...new Set(arr)].sort((a,b)=>a.localeCompare(b)); }
 function esc(s){
   return String(s).replace(/[&<>"']/g, m => (
     { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]
   ));
 }
+function encPath(p){ return p.split("/").map(encodeURIComponent).join("/"); }
 
-function matches(it, q, cat){
-  const query = (q || "").trim().toLowerCase();
-  const catOK = (cat === "All" || it.category === cat);
-  if (!catOK) return false;
-  if (!query) return true;
-  return (
-    it.name.toLowerCase().includes(query) ||
-    it.category.toLowerCase().includes(query) ||
-    it.path.toLowerCase().includes(query)
-  );
+function extOf(name){
+  const i = name.lastIndexOf(".");
+  return i>=0 ? name.slice(i+1).toLowerCase() : "";
+}
+
+function categorize(fileName, folderPath){
+  const n = fileName.toLowerCase();
+  const p = (folderPath||"").toLowerCase();
+
+  if (p.includes("/legal")) return "Legal";
+  if (n.includes("will")) return "Estate";
+  if (n.includes("trust")) return "Estate";
+  if (n.includes("power_of_attorney") || n.includes("poa")) return "Estate";
+  if (n.includes("healthcare") || n.includes("living will") || n.includes("directive")) return "Medical";
+  if (n.includes("ds11") || n.includes("passport")) return "Identity";
+  if (n.includes("cpa") || n.includes("banking") || n.includes("1099") || n.includes("tax")) return "Finance";
+  if (n.endsWith(".html")) return "Codex";
+  if (n.endsWith(".zip")) return "Archive";
+  if (["pdf","html","zip","epub"].includes(extOf(fileName))) return "Documents";
+  return "Other";
+}
+
+function displayName(fileName){
+  // Binder-clean display, no weird underscores.
+  return fileName
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\.(pdf|html|zip|epub)$/i, "")
+    .trim();
+}
+
+function isIndexable(fileName){
+  const ext = extOf(fileName);
+  return ["pdf","html","zip","epub"].includes(ext);
 }
 
 /* =========================
-   MODAL
+   GitHub Contents API fetch
+   ========================= */
+async function fetchFolder(folder){
+  const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${folder}?ref=${GH_BRANCH}`;
+  const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" } });
+  if (!res.ok) return []; // folder may not exist
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data.filter(x => x && x.type === "file");
+}
+
+async function buildManifestFromRepo(){
+  const all = [];
+  for (const folder of FOLDERS){
+    const files = await fetchFolder(folder);
+    for (const f of files){
+      if (!f?.name || !isIndexable(f.name)) continue;
+      all.push({
+        name: displayName(f.name),
+        category: categorize(f.name, folder),
+        path: `${folder}/${f.name}`
+      });
+    }
+  }
+
+  // sort: category, then name
+  all.sort((a,b)=> (a.category.localeCompare(b.category) || a.name.localeCompare(b.name)));
+  return all;
+}
+
+/* =========================
+   Modal
    ========================= */
 function openDoc(it){
-  const url = hrefFor(it.path);
+  const url = encPath(it.path);
   mtitle.textContent = it.name;
   mdownload.href = url;
   frame.src = url;
@@ -303,11 +347,26 @@ backdrop.addEventListener("click", (e)=>{ if (e.target === backdrop) closeDoc();
 document.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeDoc(); });
 
 /* =========================
-   RENDER
+   Render
    ========================= */
+let MANIFEST = [];
+
 function buildCategories(){
   const cats = uniq(["All", ...MANIFEST.map(x=>x.category)]);
   catEl.innerHTML = cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+}
+
+function matches(it, q, cat){
+  const query = (q || "").trim().toLowerCase();
+  const catOK = (cat === "All" || it.category === cat);
+  if (!catOK) return false;
+  if (!query) return true;
+
+  return (
+    it.name.toLowerCase().includes(query) ||
+    it.category.toLowerCase().includes(query) ||
+    it.path.toLowerCase().includes(query)
+  );
 }
 
 function render(){
@@ -317,19 +376,17 @@ function render(){
 
   countEl.textContent = `${items.length} document${items.length===1?"":"s"}`;
 
-  // Grouped sections (binder feel)
   const byCat = {};
   items.forEach(it => { (byCat[it.category] ||= []).push(it); });
 
   sectionsEl.innerHTML = "";
   Object.keys(byCat).sort().forEach(category => {
     const block = document.createElement("div");
-    block.className = "sectionBlock";
     block.innerHTML = `
       <div class="secTitle">${esc(category)}</div>
       <div class="list">
         ${byCat[category].map(it => {
-          const url = hrefFor(it.path);
+          const url = encPath(it.path);
           return `
             <div class="item">
               <div class="left">
@@ -337,7 +394,7 @@ function render(){
                 <div class="path">${esc(it.path)}</div>
               </div>
               <div class="actions">
-                <button class="btn primary" type="button" data-open="${esc(it.name)}">Open</button>
+                <button class="btn primary" type="button" data-open="${esc(it.path)}">Open</button>
                 <a class="btn" href="${url}" download>Download</a>
               </div>
             </div>
@@ -350,45 +407,58 @@ function render(){
 
   // Wire Open buttons
   sectionsEl.querySelectorAll("button[data-open]").forEach(btn => {
-    const name = btn.getAttribute("data-open");
+    const path = btn.getAttribute("data-open");
     btn.addEventListener("click", () => {
-      const it = MANIFEST.find(x => x.name === name);
+      const it = MANIFEST.find(x => x.path === path);
       if (it) openDoc(it);
     });
   });
 
   // Table
   tbodyEl.innerHTML = items.map(it => {
-    const url = hrefFor(it.path);
+    const url = encPath(it.path);
     return `
       <tr>
         <td><strong>${esc(it.name)}</strong><div class="muted" style="font-family:var(--mono); font-size:11px">${esc(it.path)}</div></td>
         <td>${esc(it.category)}</td>
         <td>
-          <button class="btn primary" type="button" data-open="${esc(it.name)}">Open</button>
+          <button class="btn primary" type="button" data-open="${esc(it.path)}">Open</button>
           <a class="btn" href="${url}" download>Download</a>
         </td>
       </tr>
     `;
   }).join("");
 
-  // Wire table Open buttons
   tbodyEl.querySelectorAll("button[data-open]").forEach(btn => {
-    const name = btn.getAttribute("data-open");
+    const path = btn.getAttribute("data-open");
     btn.addEventListener("click", () => {
-      const it = MANIFEST.find(x => x.name === name);
+      const it = MANIFEST.find(x => x.path === path);
       if (it) openDoc(it);
     });
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+/* =========================
+   Init
+   ========================= */
+async function init(){
+  sourceEl.textContent = "Indexing";
+  try{
+    MANIFEST = await buildManifestFromRepo();
+    sourceEl.textContent = "Live";
+  }catch(e){
+    MANIFEST = [];
+    sourceEl.textContent = "Offline";
+  }
+
   buildCategories();
   render();
+
   qEl.addEventListener("input", render);
   catEl.addEventListener("change", render);
-});
+}
+
+document.addEventListener("DOMContentLoaded", init);
 </script>
 </body>
 </html>
-
