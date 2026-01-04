@@ -30,6 +30,20 @@
       var(--bg);
   }
 
+  /* === Crest background layer (keeps the 'face' clean) === */
+  body{ position: relative; }
+  body::before{
+    content:"";
+    position: fixed;
+    inset: 0;
+    background: url("assets/crest_bg.png") center 12% / 720px no-repeat;
+    opacity: 0.16;
+    filter: saturate(1.05) contrast(1.05);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+
   a{color:inherit; text-decoration:none}
 
   header{
